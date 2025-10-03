@@ -30,7 +30,7 @@ def get_dividend_info(ticker: str):
 @app.get("/assetdata/{ticker}")
 def get_asset_data(ticker: str):
     t = yf.Ticker(ticker)
-    hist = t.history(period="20y", interval="1mo")
+    hist = t.history(period="20y", interval="1y")
 
     if hist.empty:
         return {"ticker": ticker.upper(), "data": []}
