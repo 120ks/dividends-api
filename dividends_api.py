@@ -34,7 +34,7 @@ def get_dividend_yield(ticker: str):
 def get_asset_data(ticker: str):
     try:
         t = yf.Ticker(ticker)
-        hist = t.history(period="20y", interval="3m")  # yearly open prices
+        hist = t.history(period="20y", interval="3mo")  # yearly open prices
 
         if hist.empty:
             return {"ticker": ticker.upper(), "data": []}
