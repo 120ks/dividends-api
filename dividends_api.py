@@ -3,46 +3,50 @@ import yfinance as yf
 
 app = FastAPI()
 
+# --- Dividends Endpoint ---
 @app.get("/dividends/{ticker}")
 def get_dividend_info(ticker: str):
-    try:
-        t = yf.Ticker(ticker)
-        divs = t.dividends
+    t = yf.Ticker(ticker)
+    divs = t.dividends
 
-        if divs.empty:
-            return {
-                "ticker": ticker.upper(),
-                "latest_dividend": None,
-                "annual_dividend": None,
-                "price": None,
-                "yield_percent": None
-            }
+    if divs.empty:
+        return {"ticker": ticker.upper(), "latest_dividend": 0, "yield_percent": 0}
 
-        # Latest dividend (most recent payout)
-        latest_dividend = float(divs.iloc[-1])
+    latest_dividend = float(divs.iloc[-1])
+    annual_dividend = latest_dividend * 4
+    hist = t.history(period="1d")
+    price = float(hist["Close"].iloc[-1]) if not hist.empty else None
+    yield_percent = (annual_dividend / price) * 100 if price else 0
 
-        # Estimate annual dividend (assuming quarterly payments)
-        annual_dividend = latest_dividend * 4
+    return {
+        "ticker": ticker.upper(),
+        "latest_dividend": latest_dividend,
+        "yield_percent": yield_percent,
+        "price": price
+    }
 
-        # Get current share price (latest close)
-        hist = t.history(period="1d")
-        if hist.empty:
-            price = None
-        else:
-            price = float(hist["Close"].iloc[-1])
 
-        # Calculate yield if price available
-        yield_percent = None
-        if price and annual_dividend:
-            yield_percent = (annual_dividend / price) * 100
+# --- Asset Data Endpoint ---
+@app.get("/assetdata/{ticker}")
+def get_asset_data(ticker: str):
+    t = yf.Ticker(ticker)
+    hist = t.history(period="20y", interval="1mo")
 
-        return {
-            "ticker": ticker.upper(),
-            "latest_dividend": latest_dividend,
-            "annual_dividend": annual_dividend,
-            "price": price,
-            "yield_percent": yield_percent
-        }
+    if hist.empty:
+        return {"ticker": ticker.upper(), "data": []}
 
-    except Exception as e:
-        return {"ticker": ticker.upper(), "error": str(e)}
+    yearly_data = {}
+    for date, row in hist.iterrows():
+        year = date.year
+        if year not in yearly_data:
+            price = float(row["Open"])
+            shares = t.info.get("sharesOutstanding", None)
+            market_cap = (price * shares) / 1e9 if (price and shares) else None
+            if market_cap:
+                yearly_data[year] = {
+                    "year": year,
+                    "price": price,
+                    "marketCap": market_cap
+                }
+
+    return {"ticker": ticker.upper(), "data": list(yearly_data.values())}
